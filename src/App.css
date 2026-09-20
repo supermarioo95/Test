@@ -10,6 +10,13 @@
   margin-bottom: 20px;
 }
 
+.app-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .app-header h1 {
   font-size: 1.6rem;
   margin: 0;
@@ -19,6 +26,16 @@
   margin: 4px 0 0;
   color: var(--color-muted);
   font-size: 0.9rem;
+}
+
+.settings-btn {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 1.1rem;
 }
 
 .summary {
@@ -125,6 +142,23 @@
 .bill-check--done {
   background: var(--color-success);
   border-color: var(--color-success);
+}
+
+.avatar {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-border);
+  color: var(--color-text);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.avatar--paid {
+  background: var(--color-success);
+  color: white;
 }
 
 .bill-info {
@@ -255,13 +289,16 @@
 }
 
 .modal input,
-.modal select {
+.modal select,
+.modal textarea {
   font-size: 1rem;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--color-border);
   background: var(--color-bg);
   color: var(--color-text);
+  font-family: inherit;
+  resize: vertical;
 }
 
 .checkbox-label {

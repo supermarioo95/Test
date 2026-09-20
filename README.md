@@ -1,13 +1,14 @@
-# Casa Facile
+# FantaCity
 
-PWA (Progressive Web App) per organizzare bollette e spese domestiche, installabile su iPhone dalla schermata Home.
+PWA (Progressive Web App) per gestire le iscrizioni a una lega di fantacalcio, installabile su iPhone dalla schermata Home.
 
 ## Funzionalità
 
-- Aggiungere bollette/spese con nome, importo, categoria e scadenza
-- Bollette ricorrenti: una volta segnate come pagate, la scadenza avanza automaticamente al mese successivo
-- Riepilogo: totale da pagare, numero di bollette scadute, totale pagato nel mese corrente
-- Filtri: tutte, da pagare, scadute, pagate
+- Aggiungere iscritti con nome squadra, responsabile, contatti, quota e data di iscrizione
+- Segnare la quota come pagata/da pagare con un tocco
+- Riepilogo: iscritti su posti totali, quota raccolta, quota da riscuotere
+- Filtri: tutti, da pagare, pagati
+- Impostazioni lega: nome, quota di iscrizione predefinita, posti totali
 - Dati salvati in locale sul dispositivo (localStorage), nessun account richiesto
 - Installabile come app su iOS (Safari → Condividi → Aggiungi a Home)
 

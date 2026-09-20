@@ -1,29 +1,23 @@
-export const CATEGORIES = [
-  'Affitto/Mutuo',
-  'Utenze',
-  'Internet/Telefono',
-  'Assicurazione',
-  'Spesa',
-  'Altro',
-] as const
-
-export type Category = (typeof CATEGORIES)[number]
-
-export interface Bill {
+export interface Iscritto {
   id: string
-  name: string
-  amount: number
-  category: Category
-  dueDate: string // ISO yyyy-mm-dd
-  paid: boolean
-  recurring: boolean
+  squadra: string
+  responsabile: string
+  email: string
+  telefono: string
+  dataIscrizione: string // ISO yyyy-mm-dd
+  quotaPagata: boolean
+  importoQuota: number
+  note: string
 }
 
-export interface Payment {
-  id: string
-  billId: string
-  name: string
-  amount: number
-  category: Category
-  paidDate: string // ISO yyyy-mm-dd
+export interface Impostazioni {
+  nomeLega: string
+  quotaDefault: number
+  postiTotali: number
+}
+
+export const IMPOSTAZIONI_DEFAULT: Impostazioni = {
+  nomeLega: 'FantaCity League',
+  quotaDefault: 20,
+  postiTotali: 20,
 }

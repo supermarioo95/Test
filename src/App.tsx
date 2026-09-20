@@ -1,235 +1,304 @@
 import { useMemo, useState } from 'react'
 import './App.css'
 import { useLocalStorage } from './hooks/useLocalStorage'
-import { CATEGORIES, type Bill, type Category, type Payment } from './types'
-import { billStatus, formatCurrency, formatDate, isSameMonth, todayISO, addMonths } from './utils'
+import { IMPOSTAZIONI_DEFAULT, type Impostazioni, type Iscritto } from './types'
+import { formatCurrency, formatDate, initials, todayISO } from './utils'
 
-type Filter = 'all' | 'due' | 'overdue' | 'paid'
+type Filter = 'all' | 'paid' | 'unpaid'
 
-const STATUS_LABEL: Record<string, string> = {
-  paid: 'Pagata',
-  overdue: 'Scaduta',
-  soon: 'In scadenza',
-  scheduled: 'In programma',
-}
-
-function emptyForm() {
+function emptyForm(quotaDefault: number) {
   return {
-    name: '',
-    amount: '',
-    category: CATEGORIES[0] as Category,
-    dueDate: todayISO(),
-    recurring: false,
+    squadra: '',
+    responsabile: '',
+    email: '',
+    telefono: '',
+    importoQuota: String(quotaDefault),
+    dataIscrizione: todayISO(),
+    quotaPagata: false,
+    note: '',
   }
 }
 
 function App() {
-  const [bills, setBills] = useLocalStorage<Bill[]>('casa-facile:bills', [])
-  const [payments, setPayments] = useLocalStorage<Payment[]>('casa-facile:payments', [])
+  const [iscritti, setIscritti] = useLocalStorage<Iscritto[]>('fantacity:iscritti', [])
+  const [impostazioni, setImpostazioni] = useLocalStorage<Impostazioni>(
+    'fantacity:impostazioni',
+    IMPOSTAZIONI_DEFAULT,
+  )
   const [filter, setFilter] = useState<Filter>('all')
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState(emptyForm())
+  const [showSettings, setShowSettings] = useState(false)
+  const [form, setForm] = useState(() => emptyForm(impostazioni.quotaDefault))
+  const [settingsForm, setSettingsForm] = useState(impostazioni)
 
   const totals = useMemo(() => {
-    const unpaid = bills.filter((b) => !b.paid)
-    const overdue = unpaid.filter((b) => billStatus(b.paid, b.dueDate) === 'overdue')
-    const dueTotal = unpaid.reduce((sum, b) => sum + b.amount, 0)
-    const overdueTotal = overdue.reduce((sum, b) => sum + b.amount, 0)
-    const paidThisMonth = payments
-      .filter((p) => isSameMonth(p.paidDate))
-      .reduce((sum, p) => sum + p.amount, 0)
-    return { dueTotal, overdueTotal, overdueCount: overdue.length, paidThisMonth }
-  }, [bills, payments])
+    const raccolto = iscritti.filter((i) => i.quotaPagata).reduce((sum, i) => sum + i.importoQuota, 0)
+    const daRiscuotere = iscritti.filter((i) => !i.quotaPagata).reduce((sum, i) => sum + i.importoQuota, 0)
+    const postiLiberi = Math.max(0, impostazioni.postiTotali - iscritti.length)
+    return { raccolto, daRiscuotere, postiLiberi }
+  }, [iscritti, impostazioni.postiTotali])
 
-  const visibleBills = useMemo(() => {
-    const sorted = [...bills].sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-    if (filter === 'all') return sorted
-    if (filter === 'paid') return sorted.filter((b) => b.paid)
-    if (filter === 'overdue') return sorted.filter((b) => !b.paid && billStatus(b.paid, b.dueDate) === 'overdue')
-    return sorted.filter((b) => !b.paid)
-  }, [bills, filter])
+  const visibleIscritti = useMemo(() => {
+    const sorted = [...iscritti].sort((a, b) => b.dataIscrizione.localeCompare(a.dataIscrizione))
+    if (filter === 'paid') return sorted.filter((i) => i.quotaPagata)
+    if (filter === 'unpaid') return sorted.filter((i) => !i.quotaPagata)
+    return sorted
+  }, [iscritti, filter])
 
-  function addBill(e: React.FormEvent) {
+  function addIscritto(e: React.FormEvent) {
     e.preventDefault()
-    const amount = Number.parseFloat(form.amount.replace(',', '.'))
-    if (!form.name.trim() || Number.isNaN(amount) || amount <= 0) return
+    const importo = Number.parseFloat(form.importoQuota.replace(',', '.'))
+    if (!form.squadra.trim() || !form.responsabile.trim() || Number.isNaN(importo) || importo < 0) return
 
-    const newBill: Bill = {
+    const nuovo: Iscritto = {
       id: crypto.randomUUID(),
-      name: form.name.trim(),
-      amount,
-      category: form.category,
-      dueDate: form.dueDate,
-      paid: false,
-      recurring: form.recurring,
+      squadra: form.squadra.trim(),
+      responsabile: form.responsabile.trim(),
+      email: form.email.trim(),
+      telefono: form.telefono.trim(),
+      dataIscrizione: form.dataIscrizione,
+      quotaPagata: form.quotaPagata,
+      importoQuota: importo,
+      note: form.note.trim(),
     }
-    setBills((prev) => [...prev, newBill])
-    setForm(emptyForm())
+    setIscritti((prev) => [...prev, nuovo])
+    setForm(emptyForm(impostazioni.quotaDefault))
     setShowForm(false)
   }
 
-  function togglePaid(bill: Bill) {
-    if (bill.paid) {
-      setBills((prev) => prev.map((b) => (b.id === bill.id ? { ...b, paid: false } : b)))
-      return
-    }
-
-    const payment: Payment = {
-      id: crypto.randomUUID(),
-      billId: bill.id,
-      name: bill.name,
-      amount: bill.amount,
-      category: bill.category,
-      paidDate: todayISO(),
-    }
-    setPayments((prev) => [...prev, payment])
-
-    setBills((prev) =>
-      prev.map((b) => {
-        if (b.id !== bill.id) return b
-        if (b.recurring) {
-          return { ...b, dueDate: addMonths(b.dueDate, 1), paid: false }
-        }
-        return { ...b, paid: true }
-      }),
-    )
+  function togglePagato(id: string) {
+    setIscritti((prev) => prev.map((i) => (i.id === id ? { ...i, quotaPagata: !i.quotaPagata } : i)))
   }
 
-  function deleteBill(id: string) {
-    setBills((prev) => prev.filter((b) => b.id !== id))
+  function deleteIscritto(id: string) {
+    setIscritti((prev) => prev.filter((i) => i.id !== id))
+  }
+
+  function saveSettings(e: React.FormEvent) {
+    e.preventDefault()
+    setImpostazioni(settingsForm)
+    setShowSettings(false)
   }
 
   return (
     <div className="app">
       <header className="app-header">
-        <h1>🏠 Casa Facile</h1>
-        <p>Bollette e spese domestiche</p>
+        <div className="app-header-row">
+          <div>
+            <h1>🏆 FantaCity</h1>
+            <p>{impostazioni.nomeLega}</p>
+          </div>
+          <button
+            className="settings-btn"
+            onClick={() => {
+              setSettingsForm(impostazioni)
+              setShowSettings(true)
+            }}
+            aria-label="Impostazioni lega"
+          >
+            ⚙️
+          </button>
+        </div>
       </header>
 
       <section className="summary">
-        <div className="summary-card">
-          <span className="summary-label">Da pagare</span>
-          <span className="summary-value">{formatCurrency(totals.dueTotal)}</span>
-        </div>
-        <div className={`summary-card ${totals.overdueCount > 0 ? 'summary-card--alert' : ''}`}>
-          <span className="summary-label">Scadute</span>
-          <span className="summary-value">{totals.overdueCount}</span>
+        <div className={`summary-card ${totals.postiLiberi === 0 ? 'summary-card--alert' : ''}`}>
+          <span className="summary-label">Iscritti</span>
+          <span className="summary-value">
+            {iscritti.length} / {impostazioni.postiTotali}
+          </span>
         </div>
         <div className="summary-card">
-          <span className="summary-label">Pagato a {new Date().toLocaleDateString('it-IT', { month: 'long' })}</span>
-          <span className="summary-value">{formatCurrency(totals.paidThisMonth)}</span>
+          <span className="summary-label">Raccolto</span>
+          <span className="summary-value">{formatCurrency(totals.raccolto)}</span>
+        </div>
+        <div className="summary-card">
+          <span className="summary-label">Da riscuotere</span>
+          <span className="summary-value">{formatCurrency(totals.daRiscuotere)}</span>
         </div>
       </section>
 
       <section className="filters">
-        {(['all', 'due', 'overdue', 'paid'] as Filter[]).map((f) => (
+        {(['all', 'unpaid', 'paid'] as Filter[]).map((f) => (
           <button
             key={f}
             className={`filter-chip ${filter === f ? 'filter-chip--active' : ''}`}
             onClick={() => setFilter(f)}
           >
-            {f === 'all' ? 'Tutte' : f === 'due' ? 'Da pagare' : f === 'overdue' ? 'Scadute' : 'Pagate'}
+            {f === 'all' ? 'Tutti' : f === 'unpaid' ? 'Da pagare' : 'Pagati'}
           </button>
         ))}
       </section>
 
       <section className="bill-list">
-        {visibleBills.length === 0 && (
-          <p className="empty-state">Nessuna bolletta qui. Aggiungine una con il pulsante +.</p>
+        {visibleIscritti.length === 0 && (
+          <p className="empty-state">Nessun iscritto qui. Aggiungine uno con il pulsante +.</p>
         )}
-        {visibleBills.map((bill) => {
-          const status = billStatus(bill.paid, bill.dueDate)
-          return (
-            <div key={bill.id} className={`bill-card bill-card--${status}`}>
-              <button
-                className={`bill-check ${bill.paid ? 'bill-check--done' : ''}`}
-                onClick={() => togglePaid(bill)}
-                aria-label={bill.paid ? 'Segna come da pagare' : 'Segna come pagata'}
-              >
-                {bill.paid ? '✓' : ''}
-              </button>
-              <div className="bill-info">
-                <div className="bill-title-row">
-                  <span className="bill-name">{bill.name}</span>
-                  {bill.recurring && <span className="bill-recurring" title="Ricorrente mensile">↻</span>}
-                </div>
-                <div className="bill-meta">
-                  <span className="bill-category">{bill.category}</span>
-                  <span className="bill-dot">·</span>
-                  <span>Scadenza {formatDate(bill.dueDate)}</span>
-                </div>
-                <span className={`bill-status bill-status--${status}`}>{STATUS_LABEL[status]}</span>
+        {visibleIscritti.map((iscritto) => (
+          <div key={iscritto.id} className={`bill-card ${iscritto.quotaPagata ? 'bill-card--paid' : 'bill-card--soon'}`}>
+            <button
+              className={`avatar ${iscritto.quotaPagata ? 'avatar--paid' : ''}`}
+              onClick={() => togglePagato(iscritto.id)}
+              aria-label={iscritto.quotaPagata ? 'Segna come da pagare' : 'Segna come pagato'}
+              title={iscritto.quotaPagata ? 'Segna come da pagare' : 'Segna come pagato'}
+            >
+              {initials(iscritto.responsabile)}
+            </button>
+            <div className="bill-info">
+              <div className="bill-title-row">
+                <span className="bill-name">{iscritto.squadra}</span>
               </div>
-              <div className="bill-right">
-                <span className="bill-amount">{formatCurrency(bill.amount)}</span>
-                <button className="bill-delete" onClick={() => deleteBill(bill.id)} aria-label="Elimina">
-                  🗑
-                </button>
+              <div className="bill-meta">
+                <span>{iscritto.responsabile}</span>
+                {(iscritto.email || iscritto.telefono) && <span className="bill-dot">·</span>}
+                <span>{[iscritto.email, iscritto.telefono].filter(Boolean).join(' · ')}</span>
               </div>
+              <span className={`bill-status ${iscritto.quotaPagata ? 'bill-status--paid' : 'bill-status--soon'}`}>
+                {iscritto.quotaPagata ? 'Pagato' : 'Da pagare'} · iscritto il {formatDate(iscritto.dataIscrizione)}
+              </span>
             </div>
-          )
-        })}
+            <div className="bill-right">
+              <span className="bill-amount">{formatCurrency(iscritto.importoQuota)}</span>
+              <button className="bill-delete" onClick={() => deleteIscritto(iscritto.id)} aria-label="Elimina">
+                🗑
+              </button>
+            </div>
+          </div>
+        ))}
       </section>
 
-      <button className="fab" onClick={() => setShowForm(true)} aria-label="Aggiungi bolletta">
+      <button className="fab" onClick={() => setShowForm(true)} aria-label="Aggiungi iscritto">
         +
       </button>
 
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={addBill}>
-            <h2>Nuova bolletta</h2>
+          <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={addIscritto}>
+            <h2>Nuovo iscritto</h2>
             <label>
-              Nome
+              Nome squadra
               <input
                 type="text"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Es. Bolletta luce"
+                value={form.squadra}
+                onChange={(e) => setForm({ ...form, squadra: e.target.value })}
+                placeholder="Es. Real Casentino"
                 autoFocus
                 required
               />
             </label>
             <label>
-              Importo (€)
+              Responsabile
               <input
                 type="text"
-                inputMode="decimal"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                placeholder="0,00"
+                value={form.responsabile}
+                onChange={(e) => setForm({ ...form, responsabile: e.target.value })}
+                placeholder="Nome e cognome"
                 required
               />
             </label>
             <label>
-              Categoria
-              <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as Category })}>
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+              Email
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="mario.rossi@email.it"
+              />
             </label>
             <label>
-              Scadenza
+              Telefono
+              <input
+                type="tel"
+                value={form.telefono}
+                onChange={(e) => setForm({ ...form, telefono: e.target.value })}
+                placeholder="333 1234567"
+              />
+            </label>
+            <label>
+              Quota (€)
+              <input
+                type="text"
+                inputMode="decimal"
+                value={form.importoQuota}
+                onChange={(e) => setForm({ ...form, importoQuota: e.target.value })}
+                required
+              />
+            </label>
+            <label>
+              Data iscrizione
               <input
                 type="date"
-                value={form.dueDate}
-                onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                value={form.dataIscrizione}
+                onChange={(e) => setForm({ ...form, dataIscrizione: e.target.value })}
                 required
               />
             </label>
             <label className="checkbox-label">
               <input
                 type="checkbox"
-                checked={form.recurring}
-                onChange={(e) => setForm({ ...form, recurring: e.target.checked })}
+                checked={form.quotaPagata}
+                onChange={(e) => setForm({ ...form, quotaPagata: e.target.checked })}
               />
-              Ricorrente ogni mese
+              Quota già pagata
+            </label>
+            <label>
+              Note
+              <textarea
+                value={form.note}
+                onChange={(e) => setForm({ ...form, note: e.target.value })}
+                placeholder="Facoltativo"
+                rows={2}
+              />
             </label>
             <div className="modal-actions">
               <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>
+                Annulla
+              </button>
+              <button type="submit" className="btn-primary">
+                Salva
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showSettings && (
+        <div className="modal-overlay" onClick={() => setShowSettings(false)}>
+          <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={saveSettings}>
+            <h2>Impostazioni lega</h2>
+            <label>
+              Nome lega
+              <input
+                type="text"
+                value={settingsForm.nomeLega}
+                onChange={(e) => setSettingsForm({ ...settingsForm, nomeLega: e.target.value })}
+                required
+              />
+            </label>
+            <label>
+              Quota iscrizione predefinita (€)
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={settingsForm.quotaDefault}
+                onChange={(e) => setSettingsForm({ ...settingsForm, quotaDefault: Number(e.target.value) })}
+                required
+              />
+            </label>
+            <label>
+              Posti totali
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={settingsForm.postiTotali}
+                onChange={(e) => setSettingsForm({ ...settingsForm, postiTotali: Number(e.target.value) })}
+                required
+              />
+            </label>
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={() => setShowSettings(false)}>
                 Annulla
               </button>
               <button type="submit" className="btn-primary">
