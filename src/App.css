@@ -78,6 +78,27 @@
   padding-bottom: 2px;
 }
 
+.filters--lega {
+  margin-bottom: 18px;
+}
+
+.lega-chip--A1.filter-chip--active {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+.lega-chip--A2.filter-chip--active {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+.lega-chip--B1.filter-chip--active {
+  background: #d97706;
+  border-color: #d97706;
+}
+.lega-chip--B2.filter-chip--active {
+  background: #9333ea;
+  border-color: #9333ea;
+}
+
 .filter-chip {
   flex: 0 0 auto;
   border: 1px solid var(--color-border);
@@ -180,6 +201,28 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.lega-badge {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: white;
+}
+
+.lega-badge--A1 {
+  background: #2563eb;
+}
+.lega-badge--A2 {
+  background: #16a34a;
+}
+.lega-badge--B1 {
+  background: #d97706;
+}
+.lega-badge--B2 {
+  background: #9333ea;
 }
 
 .bill-recurring {

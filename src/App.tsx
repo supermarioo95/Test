@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import './App.css'
 import { useLocalStorage } from './hooks/useLocalStorage'
-import { IMPOSTAZIONI_DEFAULT, type Impostazioni, type Iscritto } from './types'
+import { IMPOSTAZIONI_DEFAULT, LEGHE, type Impostazioni, type Iscritto, type Lega } from './types'
 import { formatCurrency, formatDate, initials, todayISO } from './utils'
 
 type Filter = 'all' | 'paid' | 'unpaid'
+type LegaFilter = 'all' | Lega
 
 function emptyForm(quotaDefault: number) {
   return {
@@ -16,6 +17,7 @@ function emptyForm(quotaDefault: number) {
     dataIscrizione: todayISO(),
     quotaPagata: false,
     note: '',
+    lega: 'A1' as Lega,
   }
 }
 
@@ -26,6 +28,7 @@ function App() {
     IMPOSTAZIONI_DEFAULT,
   )
   const [filter, setFilter] = useState<Filter>('all')
+  const [legaFilter, setLegaFilter] = useState<LegaFilter>('all')
   const [showForm, setShowForm] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [form, setForm] = useState(() => emptyForm(impostazioni.quotaDefault))
@@ -35,15 +38,20 @@ function App() {
     const raccolto = iscritti.filter((i) => i.quotaPagata).reduce((sum, i) => sum + i.importoQuota, 0)
     const daRiscuotere = iscritti.filter((i) => !i.quotaPagata).reduce((sum, i) => sum + i.importoQuota, 0)
     const postiLiberi = Math.max(0, impostazioni.postiTotali - iscritti.length)
-    return { raccolto, daRiscuotere, postiLiberi }
+    const perLega = Object.fromEntries(
+      LEGHE.map((lega) => [lega, iscritti.filter((i) => i.lega === lega).length]),
+    ) as Record<Lega, number>
+    return { raccolto, daRiscuotere, postiLiberi, perLega }
   }, [iscritti, impostazioni.postiTotali])
 
   const visibleIscritti = useMemo(() => {
     const sorted = [...iscritti].sort((a, b) => b.dataIscrizione.localeCompare(a.dataIscrizione))
-    if (filter === 'paid') return sorted.filter((i) => i.quotaPagata)
-    if (filter === 'unpaid') return sorted.filter((i) => !i.quotaPagata)
-    return sorted
-  }, [iscritti, filter])
+    let result = sorted
+    if (filter === 'paid') result = result.filter((i) => i.quotaPagata)
+    if (filter === 'unpaid') result = result.filter((i) => !i.quotaPagata)
+    if (legaFilter !== 'all') result = result.filter((i) => i.lega === legaFilter)
+    return result
+  }, [iscritti, filter, legaFilter])
 
   function addIscritto(e: React.FormEvent) {
     e.preventDefault()
@@ -60,6 +68,7 @@ function App() {
       quotaPagata: form.quotaPagata,
       importoQuota: importo,
       note: form.note.trim(),
+      lega: form.lega,
     }
     setIscritti((prev) => [...prev, nuovo])
     setForm(emptyForm(impostazioni.quotaDefault))
@@ -130,6 +139,24 @@ function App() {
         ))}
       </section>
 
+      <section className="filters filters--lega">
+        <button
+          className={`filter-chip ${legaFilter === 'all' ? 'filter-chip--active' : ''}`}
+          onClick={() => setLegaFilter('all')}
+        >
+          Tutte le leghe
+        </button>
+        {LEGHE.map((lega) => (
+          <button
+            key={lega}
+            className={`filter-chip lega-chip lega-chip--${lega} ${legaFilter === lega ? 'filter-chip--active' : ''}`}
+            onClick={() => setLegaFilter(lega)}
+          >
+            {lega} · {totals.perLega[lega]}
+          </button>
+        ))}
+      </section>
+
       <section className="bill-list">
         {visibleIscritti.length === 0 && (
           <p className="empty-state">Nessun iscritto qui. Aggiungine uno con il pulsante +.</p>
@@ -147,6 +174,7 @@ function App() {
             <div className="bill-info">
               <div className="bill-title-row">
                 <span className="bill-name">{iscritto.squadra}</span>
+                <span className={`lega-badge lega-badge--${iscritto.lega}`}>{iscritto.lega}</span>
               </div>
               <div className="bill-meta">
                 <span>{iscritto.responsabile}</span>
@@ -195,6 +223,16 @@ function App() {
                 placeholder="Nome e cognome"
                 required
               />
+            </label>
+            <label>
+              Lega
+              <select value={form.lega} onChange={(e) => setForm({ ...form, lega: e.target.value as Lega })}>
+                {LEGHE.map((lega) => (
+                  <option key={lega} value={lega}>
+                    {lega}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               Email

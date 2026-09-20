@@ -1,3 +1,6 @@
+export const LEGHE = ['A1', 'A2', 'B1', 'B2'] as const
+export type Lega = (typeof LEGHE)[number]
+
 export interface Iscritto {
   id: string
   squadra: string
@@ -8,6 +11,7 @@ export interface Iscritto {
   quotaPagata: boolean
   importoQuota: number
   note: string
+  lega: Lega
 }
 
 export interface Impostazioni {
